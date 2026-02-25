@@ -20,6 +20,7 @@ import (
 	"github.com/sst/sst/v3/cmd/sst/mosaic/monoplexer"
 	"github.com/sst/sst/v3/cmd/sst/mosaic/multiplexer"
 	"github.com/sst/sst/v3/cmd/sst/mosaic/socket"
+	"github.com/sst/sst/v3/cmd/sst/mosaic/ui"
 	"github.com/sst/sst/v3/cmd/sst/mosaic/watcher"
 	"github.com/sst/sst/v3/internal/util"
 	"github.com/sst/sst/v3/pkg/bus"
@@ -61,7 +62,8 @@ func CmdMosaic(c *cli.Cli) error {
 		cwd, _ := os.Getwd()
 		currentDir := cwd
 		for {
-			newPath := filepath.Join(currentDir, "node_modules", ".bin") + string(os.PathListSeparator) + os.Getenv("PATH")
+			nodeBinPath := filepath.Join(currentDir, "node_modules", ".bin")
+			newPath := nodeBinPath + string(os.PathListSeparator) + os.Getenv("PATH")
 			os.Setenv("PATH", newPath)
 			parentDir := filepath.Dir(currentDir)
 			if parentDir == currentDir {
@@ -73,6 +75,8 @@ func CmdMosaic(c *cli.Cli) error {
 		var last *dev.EnvResponse
 		processExited := make(chan bool)
 		timeout := time.Minute * 50
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
 
 		for {
 			select {
@@ -81,12 +85,13 @@ func CmdMosaic(c *cli.Cli) error {
 			case <-processExited:
 				c.Cancel()
 				continue
-			case <-time.After(timeout):
+			case <-timer.C:
 				last = nil
 				go func() {
 					evts <- true
 				}()
-				fmt.Println("[timeout]")
+				fmt.Println("\n"+ui.TEXT_DIM.Render("[timeout]"))
+				timer.Reset(timeout)
 				continue
 			case _, ok := <-evts:
 				if !ok {
@@ -122,6 +127,7 @@ func CmdMosaic(c *cli.Cli) error {
 					for k, v := range nextEnv.Env {
 						cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 					}
+					process.Detach(cmd)
 					cmd.Stdin = os.Stdin
 					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
@@ -153,12 +159,21 @@ func CmdMosaic(c *cli.Cli) error {
 	if err != nil {
 		return err
 	}
+	policyPath := c.String("policy")
+	if policyPath != "" {
+		if _, err := p.ResolvePolicyPackPath(policyPath); err != nil {
+			return util.NewReadableError(nil, err.Error())
+		}
+	}
 	os.Setenv("SST_STAGE", p.App().Stage)
 	slog.Info("mosaic", "project", p.PathRoot())
 
 	wg.Go(func() error {
 		defer c.Cancel()
-		return watcher.Start(c.Context, p.PathRoot())
+		return watcher.Start(c.Context, watcher.WatchConfig{
+			Root:  p.PathRoot(),
+			Watch: p.App().Watch,
+		})
 	})
 
 	server, err := server.New()
@@ -216,11 +231,6 @@ func CmdMosaic(c *cli.Cli) error {
 		return server.Start(c.Context, p)
 	})
 
-	wg.Go(func() error {
-		defer c.Cancel()
-		return deployer.Start(c.Context, p, server)
-	})
-
 	currentExecutable, _ := os.Executable()
 
 	mode := c.String("mode")
@@ -231,6 +241,13 @@ func CmdMosaic(c *cli.Cli) error {
 			mode = "mono"
 		}
 	}
+
+	evts := bus.Subscribe(&project.CompleteEvent{})
+
+	wg.Go(func() error {
+		defer c.Cancel()
+		return deployer.Start(c.Context, p, server, policyPath)
+	})
 
 	if mode == "multi" {
 		multi, err := multiplexer.New()
@@ -251,7 +268,6 @@ func CmdMosaic(c *cli.Cli) error {
 			multi.Start()
 		}()
 		wg.Go(func() error {
-			evts := bus.Subscribe(&project.CompleteEvent{})
 			defer c.Cancel()
 			for {
 				select {
@@ -260,6 +276,9 @@ func CmdMosaic(c *cli.Cli) error {
 				case unknown := <-evts:
 					switch evt := unknown.(type) {
 					case *project.CompleteEvent:
+						if evt.Old {
+							continue
+						}
 						for _, d := range evt.Devs {
 							if d.Command == "" {
 								continue
@@ -271,7 +290,7 @@ func CmdMosaic(c *cli.Cli) error {
 							}
 							multi.AddProcess(
 								d.Name,
-								append([]string{currentExecutable, "dev"}),
+								[]string{currentExecutable, "dev"},
 								"→",
 								title,
 								dir,
@@ -298,6 +317,7 @@ func CmdMosaic(c *cli.Cli) error {
 
 	if mode == "basic" {
 		wg.Go(func() error {
+			<-server.Ready
 			return CmdUI(c)
 		})
 	}
@@ -313,7 +333,6 @@ func CmdMosaic(c *cli.Cli) error {
 		})
 
 		wg.Go(func() error {
-			evts := bus.Subscribe(&project.CompleteEvent{})
 			defer c.Cancel()
 			for {
 				select {
@@ -322,6 +341,9 @@ func CmdMosaic(c *cli.Cli) error {
 				case unknown := <-evts:
 					switch evt := unknown.(type) {
 					case *project.CompleteEvent:
+						if evt.Old {
+							continue
+						}
 						for _, d := range evt.Devs {
 							if d.Command == "" {
 								continue
@@ -352,7 +374,6 @@ func CmdMosaic(c *cli.Cli) error {
 	err = wg.Wait()
 	slog.Info("done mosaic", "err", err)
 	return err
-
 }
 
 func diff(a map[string]string, b map[string]string) bool {

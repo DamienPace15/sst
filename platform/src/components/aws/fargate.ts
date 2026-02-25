@@ -896,6 +896,7 @@ export function createTaskRole(
         })(),
         actions: item.actions,
         resources: item.resources,
+        conditions: "conditions" in item ? item.conditions : undefined,
       })),
     }),
   );
@@ -993,7 +994,7 @@ export function createTaskDefinition(
   executionRole: ReturnType<typeof createExecutionRole>,
 ) {
   const clusterName = args.cluster.nodes.cluster.name;
-  const region = getRegionOutput({}, opts).name;
+  const region = getRegionOutput({}, opts).region;
   const bootstrapData = region.apply((region) => bootstrap.forRegion(region));
   const linkEnvs = Link.propertiesToEnv(Link.getProperties(args.link));
   const containerDefinitions = output(containers).apply((containers) =>

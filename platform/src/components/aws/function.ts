@@ -2,7 +2,8 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import archiver from "archiver";
-import type { BuildOptions, Loader } from "esbuild";
+import type { Loader } from "esbuild";
+import type { EsbuildOptions } from "../esbuild.js";
 import { glob } from "glob";
 import {
   all,
@@ -89,6 +90,43 @@ export type FunctionPermissionArgs = {
    * ```
    */
   resources: Input<Input<string>[]>;
+  /**
+   * Configure specific conditions for when the policy is in effect.
+   *
+   * @example
+   * ```js
+   * {
+   *   conditions: [
+   *     {
+   *       test: "StringEquals",
+   *       variable: "s3:x-amz-server-side-encryption",
+   *       values: ["AES256"]
+   *     },
+   *     {
+   *       test: "IpAddress",
+   *       variable: "aws:SourceIp",
+   *       values: ["10.0.0.0/16"]
+   *     }
+   *   ]
+   * }
+   * ```
+   */
+  conditions?: Input<
+    Input<{
+      /**
+       * Name of the [IAM condition operator](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html) to evaluate.
+       */
+      test: Input<string>;
+      /**
+       * Name of a [Context Variable](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements.html#AvailableKeys) to apply the condition to. Context variables may either be standard AWS variables starting with `aws:` or service-specific variables prefixed with the service name.
+       */
+      variable: Input<string>;
+      /**
+       * The values to evaluate the condition against. If multiple values are provided, the condition matches if at least one of them applies. That is, AWS evaluates multiple values as though using an "OR" boolean operation.
+       */
+      values: Input<Input<string>[]>;
+    }>[]
+  >;
 };
 
 interface FunctionUrlCorsArgs {
@@ -311,7 +349,7 @@ export interface FunctionArgs {
    * @example
    * ```js
    * {
-   *   runtime: "nodejs22.x"
+   *   runtime: "nodejs24.x"
    * }
    * ```
    */
@@ -319,6 +357,7 @@ export interface FunctionArgs {
     | "nodejs18.x"
     | "nodejs20.x"
     | "nodejs22.x"
+    | "nodejs24.x"
     | "go"
     | "rust"
     | "provided.al2023"
@@ -1011,7 +1050,7 @@ export interface FunctionArgs {
      * [`BuildOptions`](https://esbuild.github.io/api/#build).
      * :::
      */
-    esbuild?: Input<BuildOptions>;
+    esbuild?: Input<EsbuildOptions>;
     /**
      * Disable if the function code is minified when bundled.
      *
@@ -1353,9 +1392,7 @@ export interface FunctionArgs {
    * Or reference an existing VPC.
    *
    * ```js title="sst.config.ts"
-   * const myVpc = sst.aws.Vpc.get("MyVpc", {
-   *   id: "vpc-12345678901234567"
-   * });
+   * const myVpc = sst.aws.Vpc.get("MyVpc", "vpc-12345678901234567");
    * ```
    *
    * And pass it in.
@@ -1649,7 +1686,7 @@ export class Function extends Component implements Link.Linkable {
       ([python, dev]) => !dev && (python?.container ?? false),
     );
     const partition = getPartitionOutput({}, opts).partition;
-    const region = getRegionOutput({}, opts).name;
+    const region = getRegionOutput({}, opts).region;
     const bootstrapData = region.apply((region) => bootstrap.forRegion(region));
     const injections = normalizeInjections();
     const runtime = output(args.runtime ?? "nodejs20.x");
@@ -2105,6 +2142,7 @@ export class Function extends Component implements Link.Linkable {
               })(),
               actions: item.actions,
               resources: item.resources,
+              conditions: "conditions" in item ? item.conditions : undefined,
             })),
           }),
       );
@@ -2511,6 +2549,17 @@ export class Function extends Component implements Link.Linkable {
           },
           { parent },
         );
+        if (url.authorization === "none") {
+          new lambda.Permission(
+            `${name}InvokeFunction`,
+            {
+              action: "lambda:InvokeFunction",
+              function: fn.name,
+              principal: "*",
+            },
+            { parent },
+          );
+        }
         if (!url.route) return fnUrl.functionUrl;
 
         // add router route
@@ -2676,7 +2725,7 @@ export class Function extends Component implements Link.Linkable {
       {
         functionName: this.name,
         environment,
-        region: getRegionOutput(undefined, { parent: this }).name,
+        region: getRegionOutput(undefined, { parent: this }).region,
       },
       { parent: this },
     );
