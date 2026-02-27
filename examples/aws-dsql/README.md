@@ -44,8 +44,8 @@ This example creates:
 The Lambda function uses the `@aws-sdk/dsql-signer` package to generate a temporary authentication token.
 
 ```typescript
-import { DsqlSigner } from "@aws-sdk/dsql-signer";
-import { Resource } from "sst";
+import { DsqlSigner } from '@aws-sdk/dsql-signer';
+import { Resource } from 'sst';
 
 // Use the Resource object to get the region and endpoint
 const signer = new DsqlSigner({
@@ -64,8 +64,8 @@ const token = await signer.getDbConnectAdminAuthToken();
 const client = new Client({
   host: Resource.MyCluster.publicEndpoint,
   port: 5432,
-  database: "postgres",
-  user: "admin",
+  database: 'postgres',
+  user: 'admin',
   password: token,
   ssl: true,
 });
@@ -77,8 +77,8 @@ SST's `link` feature securely provides the function with the connection details 
 
 ```typescript
 // Link cluster to function in sst.config.ts
-const fn = new sst.aws.Function("MyFunction", {
-  handler: "src/lambda.handler",
+const fn = new sst.aws.Function('MyFunction', {
+  handler: 'src/lambda.handler',
   link: [cluster],
 });
 ```

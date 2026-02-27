@@ -32,10 +32,10 @@ In `sst.config.ts`, a multi-region cluster is defined by providing the `multiReg
 
 ```typescript
 // sst.config.ts
-const cluster = new sst.aws.Dsql("MyCluster", {
+const cluster = new sst.aws.Dsql('MyCluster', {
   multiRegion: {
-    witnessRegion: "us-west-2",
-    peerRegion: "us-east-2",
+    witnessRegion: 'us-west-2',
+    peerRegion: 'us-east-2',
   },
 });
 ```
@@ -46,8 +46,8 @@ A single function is linked to the cluster. SST automatically and securely provi
 
 ```typescript
 // sst.config.ts
-const fn = new sst.aws.Function("MyFunction", {
-  handler: "src/lambda.handler",
+const fn = new sst.aws.Function('MyFunction', {
+  handler: 'src/lambda.handler',
   link: [cluster],
 });
 ```
@@ -58,8 +58,8 @@ The Lambda function uses the `Resource` object to get the unique connection deta
 
 ```typescript
 // src/lambda.ts
-import { DsqlSigner } from "@aws-sdk/dsql-signer";
-import { Resource } from "sst";
+import { DsqlSigner } from '@aws-sdk/dsql-signer';
+import { Resource } from 'sst';
 
 async function connectToCluster(region: string, endpoint: string) {
   const signer = new DsqlSigner({ region, hostname: endpoint });
@@ -69,13 +69,13 @@ async function connectToCluster(region: string, endpoint: string) {
 // Connect to the primary cluster
 const primaryTime = await connectToCluster(
   Resource.MyCluster.region,
-  Resource.MyCluster.publicEndpoint,
+  Resource.MyCluster.publicEndpoint
 );
 
 // Connect to the peer cluster
 const peerTime = await connectToCluster(
   Resource.MyCluster.peerRegion,
-  Resource.MyCluster.peerPublicEndpoint,
+  Resource.MyCluster.peerPublicEndpoint
 );
 ```
 
@@ -87,6 +87,12 @@ Aurora DSQL uses serverless, consumption-based pricing:
 - No instance charges
 - Automatically scales with usage
 - Idle clusters incur no compute charges
+
+## Note
+
+As DSQL is a new service and they are slowly rolling it out. Aurora DSQL is only supporting mult-region clusters in US-based Regions.
+
+Check [documents](https://docs.aws.amazon.com/aurora-dsql/latest/userguide/getting-started.html#getting-started-multi-region) for more details.
 
 ## Clean up
 
