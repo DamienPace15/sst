@@ -1,11 +1,11 @@
-import { all, ComponentResourceOptions, Output, output } from '@pulumi/pulumi';
-import { Component, Prettify } from '../component.js';
-import { Link } from '../link.js';
-import { Cluster } from './cluster.js';
-import { ecs, iam } from '@pulumi/aws';
-import { permission } from './permission.js';
-import { Vpc } from './vpc.js';
-import { Function } from './function.js';
+import { all, ComponentResourceOptions, Output, output } from "@pulumi/pulumi";
+import { Component, Prettify } from "../component.js";
+import { Link } from "../link.js";
+import { Cluster } from "./cluster.js";
+import { ecs, iam } from "@pulumi/aws";
+import { permission } from "./permission.js";
+import { Vpc } from "./vpc.js";
+import { Function } from "./function.js";
 import {
   FargateBaseArgs,
   FargateContainerArgs,
@@ -17,8 +17,8 @@ import {
   normalizeCpu,
   normalizeMemory,
   normalizeStorage,
-} from './fargate.js';
-import { Input } from '../input.js';
+} from "./fargate.js";
+import { Input } from "../input.js";
 
 export interface TaskArgs extends FargateBaseArgs {
   /**
@@ -282,7 +282,7 @@ export class Task extends Component implements Link.Linkable {
   constructor(
     name: string,
     args: TaskArgs,
-    opts: ComponentResourceOptions = {}
+    opts: ComponentResourceOptions = {},
   ) {
     super(__pulumiType, name, args, opts);
 
@@ -292,7 +292,7 @@ export class Task extends Component implements Link.Linkable {
     const cpu = normalizeCpu(args);
     const memory = normalizeMemory(cpu, args);
     const storage = normalizeStorage(args);
-    const containers = normalizeContainers('task', args, name, architecture);
+    const containers = normalizeContainers("task", args, name, architecture);
     const vpc = normalizeVpc();
     const publicIp = normalizePublicIp();
 
@@ -305,11 +305,11 @@ export class Task extends Component implements Link.Linkable {
       dev
         ? [
             {
-              actions: ['appsync:*'],
-              resources: ['*'],
+              actions: ["appsync:*"],
+              resources: ["*"],
             },
           ]
-        : []
+        : [],
     );
     this.dev = dev;
     this.taskRole = taskRole;
@@ -326,7 +326,7 @@ export class Task extends Component implements Link.Linkable {
             return [
               {
                 ...v[0],
-                image: output('ghcr.io/anomalyco/sst/bridge-task:latest'),
+                image: output("ghcr.io/anomalyco/sst/bridge-task:latest"),
                 environment: {
                   ...v[0].environment,
                   SST_TASK_ID: name,
@@ -345,7 +345,7 @@ export class Task extends Component implements Link.Linkable {
       memory,
       storage,
       taskRole,
-      executionRole
+      executionRole,
     );
 
     this._cluster = args.cluster;
@@ -357,10 +357,10 @@ export class Task extends Component implements Link.Linkable {
     this.registerOutputs({
       _task: all([args.dev, containers]).apply(([v, containers]) => ({
         directory: (() => {
-          if (!containers[0].image) return '';
-          if (typeof containers[0].image === 'string') return '';
+          if (!containers[0].image) return "";
+          if (typeof containers[0].image === "string") return "";
           if (containers[0].image.context) return containers[0].image.context;
-          return '';
+          return "";
         })(),
         ...v,
       })),
@@ -387,17 +387,17 @@ export class Task extends Component implements Link.Linkable {
       return {
         isSstVpc: false,
         containerSubnets: output(args.cluster.vpc).apply((v) =>
-          v.containerSubnets.map((v) => output(v))
+          v.containerSubnets.map((v) => output(v)),
         ),
         securityGroups: output(args.cluster.vpc).apply((v) =>
-          v.securityGroups.map((v) => output(v))
+          v.securityGroups.map((v) => output(v)),
         ),
       };
     }
 
     function normalizePublicIp() {
       return all([args.publicIp, vpc.isSstVpc]).apply(
-        ([publicIp, isSstVpc]) => publicIp ?? isSstVpc
+        ([publicIp, isSstVpc]) => publicIp ?? isSstVpc,
       );
     }
   }
@@ -482,17 +482,17 @@ export class Task extends Component implements Link.Linkable {
       },
       include: [
         permission({
-          actions: ['ecs:*'],
+          actions: ["ecs:*"],
           resources: [
             this._taskDefinition.arn,
             // permissions to describe and stop the task
             this.cluster.apply(
-              (v) => v.split(':cluster/').join(':task/') + '/*'
+              (v) => v.split(":cluster/").join(":task/") + "/*",
             ),
           ],
         }),
         permission({
-          actions: ['iam:PassRole'],
+          actions: ["iam:PassRole"],
           resources: [this.executionRole.arn, this.taskRole.arn],
         }),
       ],
@@ -500,6 +500,6 @@ export class Task extends Component implements Link.Linkable {
   }
 }
 
-const __pulumiType = 'sst:aws:Task';
+const __pulumiType = "sst:aws:Task";
 // @ts-expect-error
 Task.__pulumiType = __pulumiType;
