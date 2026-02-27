@@ -609,7 +609,9 @@ export class Nextjs extends SsrSite {
               return DEFAULT_OPEN_NEXT_VERSION_NEXT14;
             }
           } catch {
-            console.warn(`Failed to detect Next.js version. Using OpenNext v${DEFAULT_OPEN_NEXT_VERSION} as default.`);
+            console.warn(
+              `Failed to detect Next.js version. Using OpenNext v${DEFAULT_OPEN_NEXT_VERSION} as default.`,
+            );
           }
           return DEFAULT_OPEN_NEXT_VERSION;
         }
@@ -701,36 +703,36 @@ export class Nextjs extends SsrSite {
                 },
                 ...(queueArn
                   ? [
-                    {
-                      actions: [
-                        "sqs:SendMessage",
-                        "sqs:GetQueueAttributes",
-                        "sqs:GetQueueUrl",
-                      ],
-                      resources: [queueArn],
-                    },
-                  ]
+                      {
+                        actions: [
+                          "sqs:SendMessage",
+                          "sqs:GetQueueAttributes",
+                          "sqs:GetQueueUrl",
+                        ],
+                        resources: [queueArn],
+                      },
+                    ]
                   : []),
                 ...(tableArn
                   ? [
-                    {
-                      actions: [
-                        "dynamodb:BatchGetItem",
-                        "dynamodb:GetRecords",
-                        "dynamodb:GetShardIterator",
-                        "dynamodb:Query",
-                        "dynamodb:GetItem",
-                        "dynamodb:Scan",
-                        "dynamodb:ConditionCheckItem",
-                        "dynamodb:BatchWriteItem",
-                        "dynamodb:PutItem",
-                        "dynamodb:UpdateItem",
-                        "dynamodb:DeleteItem",
-                        "dynamodb:DescribeTable",
-                      ],
-                      resources: [tableArn, `${tableArn}/*`],
-                    },
-                  ]
+                      {
+                        actions: [
+                          "dynamodb:BatchGetItem",
+                          "dynamodb:GetRecords",
+                          "dynamodb:GetShardIterator",
+                          "dynamodb:Query",
+                          "dynamodb:GetItem",
+                          "dynamodb:Scan",
+                          "dynamodb:ConditionCheckItem",
+                          "dynamodb:BatchWriteItem",
+                          "dynamodb:PutItem",
+                          "dynamodb:UpdateItem",
+                          "dynamodb:DeleteItem",
+                          "dynamodb:DescribeTable",
+                        ],
+                        resources: [tableArn, `${tableArn}/*`],
+                      },
+                    ]
                   : []),
               ],
               injections: [
@@ -981,11 +983,7 @@ export class Nextjs extends SsrSite {
                   outputPath,
                   openNextOutput.additionalProps.initializationFunction.bundle,
                 ),
-<<<<<<< HEAD
-                runtime: "nodejs20.x",
-=======
                 runtime: "nodejs24.x",
->>>>>>> @{-1}
                 timeout: "900 seconds",
                 memory: `${Math.min(
                   10240,

@@ -4138,7 +4138,6 @@ import type { SQSEvent, SQSHandler } from "aws-lambda";
 
 export const handler: SQSHandler = async (event: SQSEvent) => {
   for (const record of event.Records){
-    // Message bodies are always strings
     console.log(record.body)
   }
   return;

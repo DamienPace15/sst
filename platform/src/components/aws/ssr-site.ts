@@ -1,8 +1,8 @@
-import path from 'path';
-import fs from 'fs';
-import { globSync } from 'glob';
-import crypto from 'crypto';
-import type { Loader } from 'esbuild';
+import path from "path";
+import fs from "fs";
+import { globSync } from "glob";
+import crypto from "crypto";
+import type { Loader } from "esbuild";
 import {
   Output,
   Unwrap,
@@ -12,31 +12,31 @@ import {
   ComponentResourceOptions,
   Resource,
   asset as pulumiAsset,
-} from '@pulumi/pulumi';
-import * as pulumi from '@pulumi/pulumi';
-import * as aws from '@pulumi/aws';
-import { Cdn, CdnArgs } from './cdn.js';
-import { Function, FunctionArgs, FunctionArn } from './function.js';
-import { parseLambdaEdgeArn } from './helpers/arn.js';
-import { Bucket, BucketArgs } from './bucket.js';
-import { BucketFile, BucketFiles } from './providers/bucket-files.js';
-import { logicalName, physicalName } from '../naming.js';
-import { Input } from '../input.js';
+} from "@pulumi/pulumi";
+import * as pulumi from "@pulumi/pulumi";
+import * as aws from "@pulumi/aws";
+import { Cdn, CdnArgs } from "./cdn.js";
+import { Function, FunctionArgs, FunctionArn } from "./function.js";
+import { parseLambdaEdgeArn } from "./helpers/arn.js";
+import { Bucket, BucketArgs } from "./bucket.js";
+import { BucketFile, BucketFiles } from "./providers/bucket-files.js";
+import { logicalName, physicalName } from "../naming.js";
+import { Input } from "../input.js";
 import {
   Component,
   Prettify,
   transform,
   type Transform,
-} from '../component.js';
-import { VisibleError } from '../error.js';
-import { Cron } from './cron.js';
-import { BaseSiteFileOptions, getContentType } from '../base/base-site.js';
-import { BaseSsrSiteArgs, buildApp } from '../base/base-ssr-site.js';
-import { cloudfront, getRegionOutput, lambda, Region, iam } from '@pulumi/aws';
-import { KvKeys } from './providers/kv-keys.js';
-import { useProvider } from './helpers/provider.js';
-import { Link } from '../link.js';
-import { URL_UNAVAILABLE } from './linkable.js';
+} from "../component.js";
+import { VisibleError } from "../error.js";
+import { Cron } from "./cron.js";
+import { BaseSiteFileOptions, getContentType } from "../base/base-site.js";
+import { BaseSsrSiteArgs, buildApp } from "../base/base-ssr-site.js";
+import { cloudfront, getRegionOutput, lambda, Region, iam } from "@pulumi/aws";
+import { KvKeys } from "./providers/kv-keys.js";
+import { useProvider } from "./helpers/provider.js";
+import { Link } from "../link.js";
+import { URL_UNAVAILABLE } from "./linkable.js";
 import {
   CF_ROUTER_INJECTION,
   CF_BLOCK_CLOUDFRONT_URL_INJECTION,
@@ -45,50 +45,50 @@ import {
   RouterRouteArgsDeprecated,
   normalizeRouteArgs,
   RouterRouteArgs,
-} from './router.js';
-import { DistributionInvalidation } from './providers/distribution-invalidation.js';
-import { toSeconds, DurationSeconds } from '../duration.js';
-import { Size, toMBs } from '../size.js';
-import { KvRoutesUpdate } from './providers/kv-routes-update.js';
-import { toPosix } from '../path.js';
+} from "./router.js";
+import { DistributionInvalidation } from "./providers/distribution-invalidation.js";
+import { toSeconds, DurationSeconds } from "../duration.js";
+import { Size, toMBs } from "../size.js";
+import { KvRoutesUpdate } from "./providers/kv-routes-update.js";
+import { toPosix } from "../path.js";
 
 const supportedRegions = {
-  'af-south-1': { lat: -33.9249, lon: 18.4241 }, // Cape Town, South Africa
-  'ap-east-1': { lat: 22.3193, lon: 114.1694 }, // Hong Kong
-  'ap-northeast-1': { lat: 35.6895, lon: 139.6917 }, // Tokyo, Japan
-  'ap-northeast-2': { lat: 37.5665, lon: 126.978 }, // Seoul, South Korea
-  'ap-northeast-3': { lat: 34.6937, lon: 135.5023 }, // Osaka, Japan
-  'ap-southeast-1': { lat: 1.3521, lon: 103.8198 }, // Singapore
-  'ap-southeast-2': { lat: -33.8688, lon: 151.2093 }, // Sydney, Australia
-  'ap-southeast-3': { lat: -6.2088, lon: 106.8456 }, // Jakarta, Indonesia
-  'ap-southeast-4': { lat: -37.8136, lon: 144.9631 }, // Melbourne, Australia
-  'ap-southeast-5': { lat: 3.139, lon: 101.6869 }, // Kuala Lumpur, Malaysia
-  'ap-southeast-7': { lat: 13.7563, lon: 100.5018 }, // Bangkok, Thailand
-  'ap-south-1': { lat: 19.076, lon: 72.8777 }, // Mumbai, India
-  'ap-south-2': { lat: 17.385, lon: 78.4867 }, // Hyderabad, India
-  'ca-central-1': { lat: 45.5017, lon: -73.5673 }, // Montreal, Canada
-  'ca-west-1': { lat: 51.0447, lon: -114.0719 }, // Calgary, Canada
-  'cn-north-1': { lat: 39.9042, lon: 116.4074 }, // Beijing, China
-  'cn-northwest-1': { lat: 38.4872, lon: 106.2309 }, // Yinchuan, Ningxia
-  'eu-central-1': { lat: 50.1109, lon: 8.6821 }, // Frankfurt, Germany
-  'eu-central-2': { lat: 47.3769, lon: 8.5417 }, // Zurich, Switzerland
-  'eu-north-1': { lat: 59.3293, lon: 18.0686 }, // Stockholm, Sweden
-  'eu-south-1': { lat: 45.4642, lon: 9.19 }, // Milan, Italy
-  'eu-south-2': { lat: 40.4168, lon: -3.7038 }, // Madrid, Spain
-  'eu-west-1': { lat: 53.3498, lon: -6.2603 }, // Dublin, Ireland
-  'eu-west-2': { lat: 51.5074, lon: -0.1278 }, // London, UK
-  'eu-west-3': { lat: 48.8566, lon: 2.3522 }, // Paris, France
-  'il-central-1': { lat: 32.0853, lon: 34.7818 }, // Tel Aviv, Israel
-  'me-central-1': { lat: 25.2048, lon: 55.2708 }, // Dubai, UAE
-  'me-south-1': { lat: 26.0667, lon: 50.5577 }, // Manama, Bahrain
-  'mx-central-1': { lat: 19.4326, lon: -99.1332 }, // Mexico City, Mexico
-  'sa-east-1': { lat: -23.5505, lon: -46.6333 }, // São Paulo, Brazil
-  'us-east-1': { lat: 39.0438, lon: -77.4874 }, // Ashburn, VA
-  'us-east-2': { lat: 39.9612, lon: -82.9988 }, // Columbus, OH
-  'us-gov-east-1': { lat: 38.9696, lon: -77.3861 }, // Herndon, VA
-  'us-gov-west-1': { lat: 34.0522, lon: -118.2437 }, // Los Angeles, CA
-  'us-west-1': { lat: 37.7749, lon: -122.4194 }, // San Francisco, CA
-  'us-west-2': { lat: 45.5122, lon: -122.6587 }, // Portland, OR
+  "af-south-1": { lat: -33.9249, lon: 18.4241 }, // Cape Town, South Africa
+  "ap-east-1": { lat: 22.3193, lon: 114.1694 }, // Hong Kong
+  "ap-northeast-1": { lat: 35.6895, lon: 139.6917 }, // Tokyo, Japan
+  "ap-northeast-2": { lat: 37.5665, lon: 126.978 }, // Seoul, South Korea
+  "ap-northeast-3": { lat: 34.6937, lon: 135.5023 }, // Osaka, Japan
+  "ap-southeast-1": { lat: 1.3521, lon: 103.8198 }, // Singapore
+  "ap-southeast-2": { lat: -33.8688, lon: 151.2093 }, // Sydney, Australia
+  "ap-southeast-3": { lat: -6.2088, lon: 106.8456 }, // Jakarta, Indonesia
+  "ap-southeast-4": { lat: -37.8136, lon: 144.9631 }, // Melbourne, Australia
+  "ap-southeast-5": { lat: 3.139, lon: 101.6869 }, // Kuala Lumpur, Malaysia
+  "ap-southeast-7": { lat: 13.7563, lon: 100.5018 }, // Bangkok, Thailand
+  "ap-south-1": { lat: 19.076, lon: 72.8777 }, // Mumbai, India
+  "ap-south-2": { lat: 17.385, lon: 78.4867 }, // Hyderabad, India
+  "ca-central-1": { lat: 45.5017, lon: -73.5673 }, // Montreal, Canada
+  "ca-west-1": { lat: 51.0447, lon: -114.0719 }, // Calgary, Canada
+  "cn-north-1": { lat: 39.9042, lon: 116.4074 }, // Beijing, China
+  "cn-northwest-1": { lat: 38.4872, lon: 106.2309 }, // Yinchuan, Ningxia
+  "eu-central-1": { lat: 50.1109, lon: 8.6821 }, // Frankfurt, Germany
+  "eu-central-2": { lat: 47.3769, lon: 8.5417 }, // Zurich, Switzerland
+  "eu-north-1": { lat: 59.3293, lon: 18.0686 }, // Stockholm, Sweden
+  "eu-south-1": { lat: 45.4642, lon: 9.19 }, // Milan, Italy
+  "eu-south-2": { lat: 40.4168, lon: -3.7038 }, // Madrid, Spain
+  "eu-west-1": { lat: 53.3498, lon: -6.2603 }, // Dublin, Ireland
+  "eu-west-2": { lat: 51.5074, lon: -0.1278 }, // London, UK
+  "eu-west-3": { lat: 48.8566, lon: 2.3522 }, // Paris, France
+  "il-central-1": { lat: 32.0853, lon: 34.7818 }, // Tel Aviv, Israel
+  "me-central-1": { lat: 25.2048, lon: 55.2708 }, // Dubai, UAE
+  "me-south-1": { lat: 26.0667, lon: 50.5577 }, // Manama, Bahrain
+  "mx-central-1": { lat: 19.4326, lon: -99.1332 }, // Mexico City, Mexico
+  "sa-east-1": { lat: -23.5505, lon: -46.6333 }, // São Paulo, Brazil
+  "us-east-1": { lat: 39.0438, lon: -77.4874 }, // Ashburn, VA
+  "us-east-2": { lat: 39.9612, lon: -82.9988 }, // Columbus, OH
+  "us-gov-east-1": { lat: 38.9696, lon: -77.3861 }, // Herndon, VA
+  "us-gov-west-1": { lat: 34.0522, lon: -118.2437 }, // Los Angeles, CA
+  "us-west-1": { lat: 37.7749, lon: -122.4194 }, // San Francisco, CA
+  "us-west-2": { lat: 45.5122, lon: -122.6587 }, // Portland, OR
 };
 
 export type Plan = {
@@ -119,7 +119,7 @@ export type Plan = {
 };
 
 export interface SsrSiteArgs extends BaseSsrSiteArgs {
-  domain?: CdnArgs['domain'];
+  domain?: CdnArgs["domain"];
   /**
    * @deprecated Use `router` instead.
    */
@@ -196,11 +196,11 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
    * ```
    */
   protection?: Input<
-    | 'none'
-    | 'oac'
-    | 'oac-with-edge-signing'
+    | "none"
+    | "oac"
+    | "oac-with-edge-signing"
     | {
-        mode: 'oac-with-edge-signing';
+        mode: "oac-with-edge-signing";
         edgeFunction?: {
           /**
            * Custom Lambda@Edge function ARN to use for request signing.
@@ -268,7 +268,7 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
          * ```
          * This counts as two invalidations.
          */
-        paths?: Input<'all' | 'versioned' | string[]>;
+        paths?: Input<"all" | "versioned" | string[]>;
       }
   >;
   /**
@@ -295,7 +295,7 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
    * ```
    */
   regions?: Input<string[]>;
-  permissions?: FunctionArgs['permissions'];
+  permissions?: FunctionArgs["permissions"];
   /**
    * The number of instances of the [server function](#nodes-server) to keep warm. This is useful for cases where you are experiencing long cold starts. The default is to not keep any instances warm.
    *
@@ -323,7 +323,7 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
      * }
      * ```
      */
-    memory?: FunctionArgs['memory'];
+    memory?: FunctionArgs["memory"];
     /**
      * The runtime environment for the server function.
      *
@@ -337,7 +337,7 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
      * }
      * ```
      */
-    runtime?: Input<'nodejs18.x' | 'nodejs20.x' | 'nodejs22.x' | 'nodejs24.x'>;
+    runtime?: Input<"nodejs18.x" | "nodejs20.x" | "nodejs22.x" | "nodejs24.x">;
     /**
      * The maximum amount of time the server function can run.
      *
@@ -365,7 +365,7 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
      * If you need a timeout longer than what CloudFront supports, we recommend
      * using a separate Lambda `Function` with the `url` enabled instead.
      */
-    timeout?: FunctionArgs['timeout'];
+    timeout?: FunctionArgs["timeout"];
     /**
      * The [architecture](https://docs.aws.amazon.com/lambda/latest/dg/foundation-arch.html)
      * of the server function.
@@ -380,7 +380,7 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
      * }
      * ```
      */
-    architecture?: FunctionArgs['architecture'];
+    architecture?: FunctionArgs["architecture"];
     /**
      * Dependencies that need to be excluded from the server function package.
      *
@@ -606,7 +606,7 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
    * }
    * ```
    */
-  vpc?: FunctionArgs['vpc'];
+  vpc?: FunctionArgs["vpc"];
   assets?: Input<{
     /**
      * Character encoding for text based assets, like HTML, CSS, JS. This is
@@ -624,7 +624,7 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
      * ```
      */
     textEncoding?: Input<
-      'utf-8' | 'iso-8859-1' | 'windows-1252' | 'ascii' | 'none'
+      "utf-8" | "iso-8859-1" | "windows-1252" | "ascii" | "none"
     >;
     /**
      * The `Cache-Control` header used for versioned files, like `main-1234.css`. This is
@@ -745,21 +745,21 @@ export abstract class SsrSite extends Component implements Link.Linkable {
   private prodUrl?: Output<string | undefined>;
 
   protected abstract normalizeBuildCommand(
-    args: SsrSiteArgs
+    args: SsrSiteArgs,
   ): Output<string> | void;
 
   protected abstract buildPlan(
     outputPath: Output<string>,
     name: string,
     args: SsrSiteArgs,
-    { bucket }: { bucket: Bucket }
+    { bucket }: { bucket: Bucket },
   ): Output<Plan>;
 
   constructor(
     type: string,
     name: string,
     args: SsrSiteArgs = {},
-    opts: ComponentResourceOptions = {}
+    opts: ComponentResourceOptions = {},
   ) {
     super(type, name, args, opts);
     const self = this;
@@ -780,7 +780,7 @@ export abstract class SsrSite extends Component implements Link.Linkable {
       this.devUrl = dev.url;
       this.registerOutputs({
         _metadata: {
-          mode: 'placeholder',
+          mode: "placeholder",
           path: sitePath,
           server: server.arn,
         },
@@ -797,14 +797,14 @@ export abstract class SsrSite extends Component implements Link.Linkable {
       name,
       args,
       sitePath,
-      buildCommand ?? undefined
+      buildCommand ?? undefined,
     );
     const bucket = createS3Bucket();
     const plan = validatePlan(
-      this.buildPlan(outputPath, name, args, { bucket })
+      this.buildPlan(outputPath, name, args, { bucket }),
     );
     const timeout = all([serverTimeout, plan.server]).apply(
-      ([argsTimeout, plan]) => argsTimeout ?? plan?.timeout ?? '20 seconds'
+      ([argsTimeout, plan]) => argsTimeout ?? plan?.timeout ?? "20 seconds",
     );
     const servers = createServers();
     const imageOptimizer = createImageOptimizer();
@@ -827,7 +827,7 @@ export abstract class SsrSite extends Component implements Link.Linkable {
       distribution = createDistribution();
       distributionId = distribution.nodes.distribution.id;
       prodUrl = distribution.domainUrl.apply((domainUrl) =>
-        output(domainUrl ?? distribution!.url)
+        output(domainUrl ?? distribution!.url),
       );
     }
 
@@ -835,28 +835,28 @@ export abstract class SsrSite extends Component implements Link.Linkable {
       return new cloudfront.CachePolicy(
         `${name}ServerCachePolicy`,
         {
-          comment: 'SST server response cache policy',
+          comment: "SST server response cache policy",
           defaultTtl: 0,
           maxTtl: 31536000, // 1 year
           minTtl: 0,
           parametersInCacheKeyAndForwardedToOrigin: {
             cookiesConfig: {
-              cookieBehavior: 'none',
+              cookieBehavior: "none",
             },
             headersConfig: {
-              headerBehavior: 'whitelist',
+              headerBehavior: "whitelist",
               headers: {
-                items: ['x-open-next-cache-key'],
+                items: ["x-open-next-cache-key"],
               },
             },
             queryStringsConfig: {
-              queryStringBehavior: 'all',
+              queryStringBehavior: "all",
             },
             enableAcceptEncodingBrotli: true,
             enableAcceptEncodingGzip: true,
           },
         },
-        { parent: self }
+        { parent: self },
       );
     }
 
@@ -868,21 +868,21 @@ export abstract class SsrSite extends Component implements Link.Linkable {
         return new cloudfront.KeyValueStore(
           `${name}KvStore`,
           {},
-          { parent: self }
+          { parent: self },
         ).arn;
       });
     }
 
     function createRequestFunction() {
       return edge.apply((edge) => {
-        const userInjection = edge?.viewerRequest?.injection ?? '';
+        const userInjection = edge?.viewerRequest?.injection ?? "";
         const blockCloudfrontUrlInjection = args.domain
           ? CF_BLOCK_CLOUDFRONT_URL_INJECTION
-          : '';
+          : "";
         return new cloudfront.Function(
           `${name}CloudfrontFunctionRequest`,
           {
-            runtime: 'cloudfront-js-2.0',
+            runtime: "cloudfront-js-2.0",
             keyValueStoreAssociations: kvStoreArn ? [kvStoreArn] : [],
             code: interpolate`
 import cf from "cloudfront";
@@ -904,7 +904,7 @@ async function handler(event) {
   return event.request;
 }`,
           },
-          { parent: self }
+          { parent: self },
         );
       });
     }
@@ -920,7 +920,7 @@ async function handler(event) {
         return new cloudfront.Function(
           `${name}CloudfrontFunctionResponse`,
           {
-            runtime: 'cloudfront-js-2.0',
+            runtime: "cloudfront-js-2.0",
             keyValueStoreAssociations: kvStoreArn ? [kvStoreArn] : [],
             code: `
 import cf from "cloudfront";
@@ -929,7 +929,7 @@ async function handler(event) {
   return event.response;
 }`,
           },
-          { parent: self }
+          { parent: self },
         );
       });
     }
@@ -944,53 +944,53 @@ async function handler(event) {
             domain: args.domain,
             origins: [
               {
-                originId: 'default',
-                domainName: 'placeholder.sst.dev',
+                originId: "default",
+                domainName: "placeholder.sst.dev",
                 customOriginConfig: {
                   httpPort: 80,
                   httpsPort: 443,
-                  originProtocolPolicy: 'http-only',
+                  originProtocolPolicy: "http-only",
                   originReadTimeout: 20,
-                  originSslProtocols: ['TLSv1.2'],
+                  originSslProtocols: ["TLSv1.2"],
                 },
               },
             ],
             defaultCacheBehavior: {
-              targetOriginId: 'default',
-              viewerProtocolPolicy: 'redirect-to-https',
+              targetOriginId: "default",
+              viewerProtocolPolicy: "redirect-to-https",
               allowedMethods: [
-                'DELETE',
-                'GET',
-                'HEAD',
-                'OPTIONS',
-                'PATCH',
-                'POST',
-                'PUT',
+                "DELETE",
+                "GET",
+                "HEAD",
+                "OPTIONS",
+                "PATCH",
+                "POST",
+                "PUT",
               ],
-              cachedMethods: ['GET', 'HEAD'],
+              cachedMethods: ["GET", "HEAD"],
               compress: true,
               cachePolicyId: args.cachePolicy ?? createCachePolicy().id,
               // CloudFront's Managed-AllViewerExceptHostHeader policy
-              originRequestPolicyId: 'b689b0a8-53d0-40ab-baf2-68738e2966ac',
+              originRequestPolicyId: "b689b0a8-53d0-40ab-baf2-68738e2966ac",
               functionAssociations: all([
                 createRequestFunction(),
                 createResponseFunction(),
               ]).apply(([reqFn, resFn]) => [
-                { eventType: 'viewer-request', functionArn: reqFn.arn },
+                { eventType: "viewer-request", functionArn: reqFn.arn },
                 ...(resFn
-                  ? [{ eventType: 'viewer-response', functionArn: resFn.arn }]
+                  ? [{ eventType: "viewer-response", functionArn: resFn.arn }]
                   : []),
               ]),
               lambdaFunctionAssociations: all([protection, edgeFunction]).apply(
                 ([protectionConfig, autoEdgeFunction]) => {
-                  if (protectionConfig.mode !== 'oac-with-edge-signing') {
+                  if (protectionConfig.mode !== "oac-with-edge-signing") {
                     return [];
                   }
 
                   if (protectionConfig.edgeFunction?.arn) {
                     return [
                       {
-                        eventType: 'origin-request',
+                        eventType: "origin-request",
                         lambdaArn: protectionConfig.edgeFunction.arn,
                         includeBody: true,
                       },
@@ -1000,7 +1000,7 @@ async function handler(event) {
                   if (autoEdgeFunction) {
                     return [
                       {
-                        eventType: 'origin-request',
+                        eventType: "origin-request",
                         lambdaArn: autoEdgeFunction.qualifiedArn,
                         includeBody: true,
                       },
@@ -1008,12 +1008,12 @@ async function handler(event) {
                   }
 
                   return [];
-                }
+                },
               ),
             },
           },
-          { parent: self }
-        )
+          { parent: self },
+        ),
       );
     }
 
@@ -1032,84 +1032,84 @@ async function handler(event) {
         servers.forEach(({ region, server }) => {
           const provider = useProvider(region);
 
-          if (protection.mode === 'none') {
+          if (protection.mode === "none") {
             new lambda.Permission(
               `${name}PublicFunctionUrlAccess${logicalName(region)}`,
               {
-                action: 'lambda:InvokeFunctionUrl',
+                action: "lambda:InvokeFunctionUrl",
                 function: server.nodes.function.name,
-                principal: '*',
-                functionUrlAuthType: 'NONE',
+                principal: "*",
+                functionUrlAuthType: "NONE",
               },
-              { provider, parent: self }
+              { provider, parent: self },
             );
           } else if (
-            protection.mode === 'oac' ||
-            protection.mode === 'oac-with-edge-signing'
+            protection.mode === "oac" ||
+            protection.mode === "oac-with-edge-signing"
           ) {
             new lambda.Permission(
               `${name}CloudFrontFunctionUrlAccess${logicalName(region)}`,
               {
-                action: 'lambda:InvokeFunctionUrl',
+                action: "lambda:InvokeFunctionUrl",
                 function: server.nodes.function.name,
-                principal: 'cloudfront.amazonaws.com',
+                principal: "cloudfront.amazonaws.com",
                 sourceArn: distributionArn,
               },
-              { provider, parent: self }
+              { provider, parent: self },
             );
             new lambda.Permission(
               `${name}CloudFrontInvokeFunction${logicalName(region)}`,
               {
-                action: 'lambda:InvokeFunction',
+                action: "lambda:InvokeFunction",
                 function: server.nodes.function.name,
-                principal: 'cloudfront.amazonaws.com',
+                principal: "cloudfront.amazonaws.com",
                 sourceArn: distributionArn,
               },
-              { provider, parent: self }
+              { provider, parent: self },
             );
           }
         });
 
         // Image optimizer
         if (imgOptimizer) {
-          if (protection.mode === 'none') {
+          if (protection.mode === "none") {
             new lambda.Permission(
               `${name}ImageOptimizerPublicFunctionUrlAccess`,
               {
-                action: 'lambda:InvokeFunctionUrl',
+                action: "lambda:InvokeFunctionUrl",
                 function: imgOptimizer.nodes.function.name,
-                principal: '*',
-                functionUrlAuthType: 'NONE',
+                principal: "*",
+                functionUrlAuthType: "NONE",
               },
-              { parent: self }
+              { parent: self },
             );
           } else if (
-            protection.mode === 'oac' ||
-            protection.mode === 'oac-with-edge-signing'
+            protection.mode === "oac" ||
+            protection.mode === "oac-with-edge-signing"
           ) {
             new lambda.Permission(
               `${name}ImageOptimizerCloudFrontFunctionUrlAccess`,
               {
-                action: 'lambda:InvokeFunctionUrl',
+                action: "lambda:InvokeFunctionUrl",
                 function: imgOptimizer.nodes.function.name,
-                principal: 'cloudfront.amazonaws.com',
+                principal: "cloudfront.amazonaws.com",
                 sourceArn: distributionArn,
               },
-              { parent: self }
+              { parent: self },
             );
             new lambda.Permission(
               `${name}ImageOptimizerCloudFrontInvokeFunction`,
               {
-                action: 'lambda:InvokeFunction',
+                action: "lambda:InvokeFunction",
                 function: imgOptimizer.nodes.function.name,
-                principal: 'cloudfront.amazonaws.com',
+                principal: "cloudfront.amazonaws.com",
                 sourceArn: distributionArn,
               },
-              { parent: self }
+              { parent: self },
             );
           }
         }
-      }
+      },
     );
 
     const server = servers.apply((servers) => servers[0]?.server);
@@ -1121,7 +1121,7 @@ async function handler(event) {
     this.registerOutputs({
       _hint: this.url,
       _metadata: {
-        mode: 'deployed',
+        mode: "deployed",
         path: sitePath,
         url: this.url,
         edge: false,
@@ -1132,7 +1132,7 @@ async function handler(event) {
     function validateDeprecatedProps() {
       if (args.cdn !== undefined)
         throw new VisibleError(
-          `"cdn" prop is deprecated. Use the "route.router" prop instead to use an existing "Router" component to serve your site.`
+          `"cdn" prop is deprecated. Use the "route.router" prop instead to use an existing "Router" component to serve your site.`,
         );
     }
 
@@ -1145,7 +1145,7 @@ async function handler(event) {
         url: output(devArgs.url ?? URL_UNAVAILABLE),
         outputs: {
           title: devArgs.title,
-          command: output(devArgs.command ?? 'npm run dev'),
+          command: output(devArgs.command ?? "npm run dev"),
           autostart: output(devArgs.autostart ?? true),
           directory: output(devArgs.directory ?? sitePath),
           environment: args.environment,
@@ -1158,13 +1158,13 @@ async function handler(event) {
 
     function normalizeSitePath() {
       return output(args.path).apply((sitePath) => {
-        if (!sitePath) return '.';
+        if (!sitePath) return ".";
 
         if (!fs.existsSync(sitePath)) {
           throw new VisibleError(
             `Site directory not found at "${path.resolve(
-              sitePath
-            )}". Please check the path setting in your configuration.`
+              sitePath,
+            )}". Please check the path setting in your configuration.`,
           );
         }
         return sitePath;
@@ -1173,33 +1173,33 @@ async function handler(event) {
 
     function normalizeRegions() {
       return output(
-        args.regions ?? [getRegionOutput(undefined, { parent: self }).region]
+        args.regions ?? [getRegionOutput(undefined, { parent: self }).region],
       ).apply((regions) => {
         if (regions.length === 0)
           throw new VisibleError(
-            "No deployment regions specified. Please specify at least one region in the 'regions' property."
+            "No deployment regions specified. Please specify at least one region in the 'regions' property.",
           );
 
         return regions.map((region) => {
           if (
             [
-              'ap-south-2',
-              'ap-southeast-4',
-              'ap-southeast-5',
-              'ca-west-1',
-              'eu-south-2',
-              'eu-central-2',
-              'il-central-1',
-              'me-central-1',
+              "ap-south-2",
+              "ap-southeast-4",
+              "ap-southeast-5",
+              "ca-west-1",
+              "eu-south-2",
+              "eu-central-2",
+              "il-central-1",
+              "me-central-1",
             ].includes(region)
           )
             throw new VisibleError(
-              `Region ${region} is not supported by this component. Please select a different AWS region.`
+              `Region ${region} is not supported by this component. Please select a different AWS region.`,
             );
 
           if (!Object.values(Region).includes(region as Region))
             throw new VisibleError(
-              `Invalid AWS region: "${region}". Please specify a valid AWS region.`
+              `Invalid AWS region: "${region}". Please specify a valid AWS region.`,
             );
           return region as Region;
         });
@@ -1212,17 +1212,17 @@ async function handler(event) {
       if (route) {
         if (args.domain)
           throw new VisibleError(
-            `Cannot provide both "domain" and "route". Use the "domain" prop on the "Router" component when serving your site through a Router.`
+            `Cannot provide both "domain" and "route". Use the "domain" prop on the "Router" component when serving your site through a Router.`,
           );
 
         if (args.edge)
           throw new VisibleError(
-            `Cannot provide both "edge" and "route". Use the "edge" prop on the "Router" component when serving your site through a Router.`
+            `Cannot provide both "edge" and "route". Use the "edge" prop on the "Router" component when serving your site through a Router.`,
           );
 
         if (args.protection)
           throw new VisibleError(
-            `Cannot set "protection" when routing through a Router. Set "protection" on the Router component instead.`
+            `Cannot set "protection" when routing through a Router. Set "protection" on the Router component instead.`,
           );
       }
 
@@ -1234,12 +1234,12 @@ async function handler(event) {
         ([edge, serverEdge]) => {
           if (serverEdge)
             throw new VisibleError(
-              `The "server.edge" prop is deprecated. Use the "edge" prop on the top level instead.`
+              `The "server.edge" prop is deprecated. Use the "edge" prop on the top level instead.`,
             );
 
           if (!edge) return edge;
           return edge;
-        }
+        },
       );
     }
 
@@ -1249,18 +1249,18 @@ async function handler(event) {
       }
 
       return output(args.protection).apply((protection) => {
-        if (!protection) return { mode: 'none' as const };
+        if (!protection) return { mode: "none" as const };
 
-        if (typeof protection === 'string') {
+        if (typeof protection === "string") {
           return { mode: protection };
         }
 
         if (
-          protection.mode === 'oac-with-edge-signing' &&
+          protection.mode === "oac-with-edge-signing" &&
           protection.edgeFunction?.arn
         ) {
           const arn = protection.edgeFunction.arn;
-          if (typeof arn === 'string') {
+          if (typeof arn === "string") {
             parseLambdaEdgeArn(arn);
           }
         }
@@ -1274,7 +1274,7 @@ async function handler(event) {
 
       return protection.apply((protectionConfig) => {
         if (
-          protectionConfig.mode !== 'oac-with-edge-signing' ||
+          protectionConfig.mode !== "oac-with-edge-signing" ||
           protectionConfig.edgeFunction?.arn
         ) {
           return undefined;
@@ -1291,26 +1291,26 @@ async function handler(event) {
             {
               name: physicalName(64, `${name}EdgeRole`),
               assumeRolePolicy: JSON.stringify({
-                Version: '2012-10-17',
+                Version: "2012-10-17",
                 Statement: [
                   {
-                    Action: 'sts:AssumeRole',
-                    Effect: 'Allow',
+                    Action: "sts:AssumeRole",
+                    Effect: "Allow",
                     Principal: {
                       Service: [
-                        'lambda.amazonaws.com',
-                        'edgelambda.amazonaws.com',
+                        "lambda.amazonaws.com",
+                        "edgelambda.amazonaws.com",
                       ],
                     },
                   },
                 ],
               }),
               managedPolicyArns: [
-                'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole',
+                "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
               ],
             },
-            { parent: self, ignoreChanges: ['name'] }
-          )
+            { parent: self, ignoreChanges: ["name"] },
+          ),
         );
 
         const edgeFunction = new lambda.Function(
@@ -1319,11 +1319,11 @@ async function handler(event) {
             `${name}EdgeFunction`,
             {
               name: physicalName(64, `${name}EdgeFn`),
-              runtime: 'nodejs22.x',
-              handler: 'index.handler',
+              runtime: "nodejs22.x",
+              handler: "index.handler",
               role: edgeRole.arn,
               code: new pulumiAsset.FileArchive(
-                path.join($cli.paths.platform, 'dist', 'oac-edge-signer')
+                path.join($cli.paths.platform, "dist", "oac-edge-signer"),
               ),
               publish: true,
               timeout: timeout,
@@ -1332,10 +1332,10 @@ async function handler(event) {
             },
             {
               parent: self,
-              provider: useProvider('us-east-1'),
-              ignoreChanges: ['name'],
-            }
-          )
+              provider: useProvider("us-east-1"),
+              ignoreChanges: ["name"],
+            },
+          ),
         );
 
         return edgeFunction;
@@ -1349,22 +1349,22 @@ async function handler(event) {
           `${name}DevServer`,
           {
             description: `${name} dev server`,
-            runtime: 'nodejs24.x',
-            timeout: '20 seconds',
-            memory: '128 MB',
+            runtime: "nodejs24.x",
+            timeout: "20 seconds",
+            memory: "128 MB",
             bundle: path.join(
               $cli.paths.platform,
-              'functions',
-              'empty-function'
+              "functions",
+              "empty-function",
             ),
-            handler: 'index.handler',
+            handler: "index.handler",
             environment: args.environment,
             permissions: args.permissions,
             link: args.link,
             dev: false,
           },
-          { parent: self }
-        )
+          { parent: self },
+        ),
       );
     }
 
@@ -1372,29 +1372,29 @@ async function handler(event) {
       return all([plan, route]).apply(([plan, route]) => {
         if (plan.base) {
           // starts with /
-          plan.base = !plan.base.startsWith('/') ? `/${plan.base}` : plan.base;
+          plan.base = !plan.base.startsWith("/") ? `/${plan.base}` : plan.base;
           // does not end with /
-          plan.base = plan.base.replace(/\/$/, '');
+          plan.base = plan.base.replace(/\/$/, "");
         }
 
-        if (route?.pathPrefix && route.pathPrefix !== '/') {
+        if (route?.pathPrefix && route.pathPrefix !== "/") {
           if (!plan.base)
             throw new VisibleError(
-              `No base path found for site. You must configure the base path to match the route path prefix "${route.pathPrefix}".`
+              `No base path found for site. You must configure the base path to match the route path prefix "${route.pathPrefix}".`,
             );
 
           if (!plan.base.startsWith(route.pathPrefix))
             throw new VisibleError(
-              `The site base path "${plan.base}" must start with the route path prefix "${route.pathPrefix}".`
+              `The site base path "${plan.base}" must start with the route path prefix "${route.pathPrefix}".`,
             );
         }
 
         // if copy.to has a leading slash, files will be uploaded to `/` folder in bucket
         plan.assets.forEach((copy) => {
-          copy.to = copy.to.replace(/^\/|\/$/g, '');
+          copy.to = copy.to.replace(/^\/|\/$/g, "");
         });
         if (plan.isrCache) {
-          plan.isrCache.to = plan.isrCache.to.replace(/^\/|\/$/g, '');
+          plan.isrCache.to = plan.isrCache.to.replace(/^\/|\/$/g, "");
         }
 
         return plan;
@@ -1406,9 +1406,9 @@ async function handler(event) {
         ...transform(
           args.transform?.assets,
           `${name}Assets`,
-          { access: 'cloudfront' },
-          { parent: self, retainOnDelete: false }
-        )
+          { access: "cloudfront" },
+          { parent: self, retainOnDelete: false },
+        ),
       );
     }
 
@@ -1426,19 +1426,19 @@ async function handler(event) {
                 ...planServer,
                 description: planServer.description ?? `${name} server`,
                 runtime: output(args.server?.runtime).apply(
-                  (v) => v ?? planServer.runtime ?? 'nodejs24.x'
+                  (v) => v ?? planServer.runtime ?? "nodejs24.x",
                 ),
                 timeout,
                 memory: output(args.server?.memory).apply(
-                  (v) => v ?? planServer.memory ?? '1024 MB'
+                  (v) => v ?? planServer.memory ?? "1024 MB",
                 ),
                 architecture: output(args.server?.architecture).apply(
-                  (v) => v ?? planServer.architecture ?? 'x86_64'
+                  (v) => v ?? planServer.architecture ?? "x86_64",
                 ),
                 vpc: args.vpc,
                 nodejs: {
                   ...planServer.nodejs,
-                  format: 'esm' as const,
+                  format: "esm" as const,
                   install: output(args.server?.install).apply((install) => [
                     ...(install ?? []),
                     ...(planServer.nodejs?.install ?? []),
@@ -1451,8 +1451,8 @@ async function handler(event) {
                 })),
                 permissions: output(args.permissions).apply((permissions) => [
                   {
-                    actions: ['cloudfront:CreateInvalidation'],
-                    resources: ['*'],
+                    actions: ["cloudfront:CreateInvalidation"],
+                    resources: ["*"],
                   },
                   ...(permissions ?? []),
                   ...(planServer.permissions ?? []),
@@ -1473,16 +1473,16 @@ async function handler(event) {
                 ]),
                 url: {
                   authorization: protection.apply((p) =>
-                    p.mode === 'oac' || p.mode === 'oac-with-edge-signing'
-                      ? 'iam'
-                      : 'none'
+                    p.mode === "oac" || p.mode === "oac-with-edge-signing"
+                      ? "iam"
+                      : "none",
                   ),
                 },
                 dev: false,
                 _skipHint: true,
               },
-              { provider, parent: self }
-            )
+              { provider, parent: self },
+            ),
           );
 
           if (args.warm) {
@@ -1490,19 +1490,19 @@ async function handler(event) {
             const cron = new Cron(
               `${name}Warmer${logicalName(region)}`,
               {
-                schedule: 'rate(5 minutes)',
+                schedule: "rate(5 minutes)",
                 job: {
                   description: `${name} warmer`,
-                  bundle: path.join($cli.paths.platform, 'dist', 'ssr-warmer'),
-                  runtime: 'nodejs24.x',
-                  handler: 'index.handler',
-                  timeout: '900 seconds',
-                  memory: '128 MB',
+                  bundle: path.join($cli.paths.platform, "dist", "ssr-warmer"),
+                  runtime: "nodejs24.x",
+                  handler: "index.handler",
+                  timeout: "900 seconds",
+                  memory: "128 MB",
                   dev: false,
                   environment: {
                     FUNCTION_NAME: server.nodes.function.name,
                     CONCURRENCY: output(args.warm).apply((warm) =>
-                      warm.toString()
+                      warm.toString(),
                     ),
                   },
                   link: [server],
@@ -1517,7 +1517,7 @@ async function handler(event) {
                   },
                 },
               },
-              { provider, parent: self }
+              { provider, parent: self },
             );
 
             // Prewarm on deploy
@@ -1530,7 +1530,7 @@ async function handler(event) {
                 },
                 input: JSON.stringify({}),
               },
-              { provider, parent: self }
+              { provider, parent: self },
             );
           }
 
@@ -1547,30 +1547,30 @@ async function handler(event) {
             args.transform?.imageOptimizer,
             `${name}ImageOptimizer`,
             {
-              timeout: '25 seconds',
+              timeout: "25 seconds",
               logging: {
-                retention: '3 days',
+                retention: "3 days",
               },
               permissions: [
                 {
-                  actions: ['s3:GetObject'],
+                  actions: ["s3:GetObject"],
                   resources: [interpolate`${bucket.arn}/*`],
                 },
               ],
               ...imageOptimizer.function,
               url: {
                 authorization: protection.apply((p) =>
-                  p.mode === 'oac' || p.mode === 'oac-with-edge-signing'
-                    ? 'iam'
-                    : 'none'
+                  p.mode === "oac" || p.mode === "oac-with-edge-signing"
+                    ? "iam"
+                    : "none",
                 ),
               },
               dev: false,
               _skipMetadata: true,
               _skipHint: true,
             },
-            { parent: self }
-          )
+            { parent: self },
+          ),
         );
       });
     }
@@ -1592,7 +1592,7 @@ async function handler(event) {
             ]
           : [`  return p;`]),
         `}`,
-      ].join('\n');
+      ].join("\n");
     }
 
     function uploadAssets() {
@@ -1615,9 +1615,9 @@ async function handler(event) {
             const fileOptions: BaseSiteFileOptions[] = [
               // unversioned files
               {
-                files: '**',
+                files: "**",
                 ignore: copy.versionedSubDir
-                  ? toPosix(path.join(copy.versionedSubDir, '**'))
+                  ? toPosix(path.join(copy.versionedSubDir, "**"))
                   : undefined,
                 cacheControl:
                   assets?.nonVersionedFilesCacheHeader ??
@@ -1627,7 +1627,7 @@ async function handler(event) {
               ...(copy.versionedSubDir
                 ? [
                     {
-                      files: toPosix(path.join(copy.versionedSubDir, '**')),
+                      files: toPosix(path.join(copy.versionedSubDir, "**")),
                       cacheControl:
                         assets?.versionedFilesCacheHeader ??
                         `public,max-age=${versionedFilesTTL},immutable`,
@@ -1651,27 +1651,27 @@ async function handler(event) {
                 ...(await Promise.all(
                   files.map(async (file) => {
                     const source = path.resolve(outputPath, copy.from, file);
-                    const content = await fs.promises.readFile(source, 'utf-8');
+                    const content = await fs.promises.readFile(source, "utf-8");
                     const hash = crypto
-                      .createHash('sha256')
+                      .createHash("sha256")
                       .update(content)
-                      .digest('hex');
+                      .digest("hex");
                     return {
                       source,
                       key: toPosix(
                         path.join(
                           copy.to,
-                          route?.pathPrefix?.replace(/^\//, '') ?? '',
-                          file
-                        )
+                          route?.pathPrefix?.replace(/^\//, "") ?? "",
+                          file,
+                        ),
                       ),
                       hash,
                       cacheControl: fileOption.cacheControl,
                       contentType:
-                        fileOption.contentType ?? getContentType(file, 'UTF-8'),
+                        fileOption.contentType ?? getContentType(file, "UTF-8"),
                     };
-                  })
-                ))
+                  }),
+                )),
               );
               filesUploaded.push(...files);
             }
@@ -1685,18 +1685,18 @@ async function handler(event) {
               purge,
               region: getRegionOutput(undefined, { parent: self }).region,
             },
-            { parent: self }
+            { parent: self },
           );
-        }
+        },
       );
     }
 
     function buildKvNamespace() {
       // In the case multiple sites use the same kv store, we need to namespace the keys
       return crypto
-        .createHash('md5')
+        .createHash("md5")
         .update(`${$app.name}-${$app.stage}-${name}`)
-        .digest('hex')
+        .digest("hex")
         .substring(0, 4);
     }
 
@@ -1729,17 +1729,17 @@ async function handler(event) {
             // - `.well-known` contain files without suffix, hence will be appended .html
             // - in the future, it might make sense for each dir to have props that controls
             //   the suffixes ie. "handleTrailingSlashse"
-            const expandDirs = ['.well-known'];
+            const expandDirs = [".well-known"];
 
             plan.assets.forEach((copy) => {
-              const processDir = (childPath = '', level = 0) => {
+              const processDir = (childPath = "", level = 0) => {
                 const currentPath = path.join(outputPath, copy.from, childPath);
                 fs.readdirSync(currentPath, { withFileTypes: true }).forEach(
                   (item) => {
                     // File: add to kvEntries
                     if (item.isFile()) {
-                      kvEntries[toPosix(path.join('/', childPath, item.name))] =
-                        's3';
+                      kvEntries[toPosix(path.join("/", childPath, item.name))] =
+                        "s3";
                       return;
                     }
                     // Directory + deep routes: recursively process it
@@ -1757,33 +1757,33 @@ async function handler(event) {
                       return;
                     }
                     // Directory + NOT expand: add to route
-                    dirs.push(toPosix(path.join('/', childPath, item.name)));
-                  }
+                    dirs.push(toPosix(path.join("/", childPath, item.name)));
+                  },
                 );
               };
               processDir();
             });
 
-            kvEntries['metadata'] = JSON.stringify({
+            kvEntries["metadata"] = JSON.stringify({
               base: plan.base,
               custom404: plan.custom404,
               s3: {
                 domain: bucketDomain,
-                dir: plan.assets[0].to ? '/' + plan.assets[0].to : '',
+                dir: plan.assets[0].to ? "/" + plan.assets[0].to : "",
                 routes: dirs,
               },
               image: imageOptimizerUrl
                 ? {
                     host: new URL(imageOptimizerUrl!).host,
                     route: plan.imageOptimizer!.prefix,
-                    ...(protectionConfig.mode === 'oac' ||
-                    protectionConfig.mode === 'oac-with-edge-signing'
+                    ...(protectionConfig.mode === "oac" ||
+                    protectionConfig.mode === "oac-with-edge-signing"
                       ? {
                           originAccessControlConfig: {
                             enabled: true,
-                            signingBehavior: 'always',
-                            signingProtocol: 'sigv4',
-                            originType: 'lambda',
+                            signingBehavior: "always",
+                            signingProtocol: "sigv4",
+                            originType: "lambda",
                           },
                         }
                       : {}),
@@ -1798,21 +1798,21 @@ async function handler(event) {
                 timeouts: {
                   readTimeout: toSeconds(timeout),
                 },
-                ...(protectionConfig.mode === 'oac' ||
-                protectionConfig.mode === 'oac-with-edge-signing'
+                ...(protectionConfig.mode === "oac" ||
+                protectionConfig.mode === "oac-with-edge-signing"
                   ? {
                       originAccessControlConfig: {
                         enabled: true,
-                        signingBehavior: 'always',
-                        signingProtocol: 'sigv4',
-                        originType: 'lambda',
+                        signingBehavior: "always",
+                        signingProtocol: "sigv4",
+                        originType: "lambda",
                       },
                     }
                   : {}),
               },
             } satisfies KV_SITE_METADATA);
             return kvEntries;
-          })
+          }),
       );
 
       return new KvKeys(
@@ -1823,7 +1823,7 @@ async function handler(event) {
           entries,
           purge,
         },
-        { parent: self }
+        { parent: self },
       );
     }
 
@@ -1833,14 +1833,14 @@ async function handler(event) {
         {
           store: route!.routerKvStoreArn,
           namespace: route!.routerKvNamespace,
-          key: 'routes',
+          key: "routes",
           entry: route!.apply((route) =>
-            ['site', kvNamespace, route!.hostPattern, route!.pathPrefix].join(
-              ','
-            )
+            ["site", kvNamespace, route!.hostPattern, route!.pathPrefix].join(
+              ",",
+            ),
           ),
         },
-        { parent: self }
+        { parent: self },
       );
     }
 
@@ -1851,7 +1851,7 @@ async function handler(event) {
           if (invalidationRaw === false) return;
           const invalidation = {
             wait: false,
-            paths: 'all',
+            paths: "all",
             ...invalidationRaw,
           };
 
@@ -1863,13 +1863,13 @@ async function handler(event) {
 
           // Build invalidation paths
           const invalidationPaths: string[] = [];
-          if (invalidation.paths === 'all') {
-            invalidationPaths.push('/*');
-          } else if (invalidation.paths === 'versioned') {
+          if (invalidation.paths === "all") {
+            invalidationPaths.push("/*");
+          } else if (invalidation.paths === "versioned") {
             cachedS3Files.forEach((item) => {
               if (!item.versionedSubDir) return;
               invalidationPaths.push(
-                toPosix(path.join('/', item.to, item.versionedSubDir, '*'))
+                toPosix(path.join("/", item.to, item.versionedSubDir, "*")),
               );
             });
           } else {
@@ -1882,7 +1882,7 @@ async function handler(event) {
           if (plan.buildId) {
             invalidationBuildId = plan.buildId;
           } else {
-            const hash = crypto.createHash('md5');
+            const hash = crypto.createHash("md5");
 
             cachedS3Files.forEach((item) => {
               // The below options are needed to support following symlinks when building zip files:
@@ -1891,23 +1891,23 @@ async function handler(event) {
 
               // For versioned files, use file path for digest since file version in name should change on content change
               if (item.versionedSubDir) {
-                globSync('**', {
+                globSync("**", {
                   dot: true,
                   nodir: true,
                   follow: true,
                   cwd: path.resolve(
                     outputPath,
                     item.from,
-                    item.versionedSubDir
+                    item.versionedSubDir,
                   ),
                 }).forEach((filePath) => hash.update(filePath));
               }
 
               // For non-versioned files, use file content for digest
-              if (invalidation.paths !== 'versioned') {
-                globSync('**', {
+              if (invalidation.paths !== "versioned") {
+                globSync("**", {
                   ignore: item.versionedSubDir
-                    ? [toPosix(path.join(item.versionedSubDir, '**'))]
+                    ? [toPosix(path.join(item.versionedSubDir, "**"))]
                     : undefined,
                   dot: true,
                   nodir: true,
@@ -1917,13 +1917,13 @@ async function handler(event) {
                   hash.update(
                     fs.readFileSync(
                       path.resolve(outputPath, item.from, filePath),
-                      'utf-8'
-                    )
-                  )
+                      "utf-8",
+                    ),
+                  ),
                 );
               }
             });
-            invalidationBuildId = hash.digest('hex');
+            invalidationBuildId = hash.digest("hex");
           }
 
           new DistributionInvalidation(
@@ -1937,9 +1937,9 @@ async function handler(event) {
             {
               parent: self,
               dependsOn: [assetsUploaded, kvUpdated, ...invalidationDependsOn],
-            }
+            },
           );
-        }
+        },
       );
     }
   }
@@ -1952,7 +1952,7 @@ async function handler(event) {
    */
   public get url() {
     return all([this.prodUrl, this.devUrl]).apply(
-      ([prodUrl, devUrl]) => (prodUrl ?? devUrl)!
+      ([prodUrl, devUrl]) => (prodUrl ?? devUrl)!,
     );
   }
 
