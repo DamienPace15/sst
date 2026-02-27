@@ -1084,10 +1084,6 @@ View the [full example](https://github.com/sst/sst/tree/dev/examples/aws-cluster
 
 
 ---
-<<<<<<< HEAD
-## Subscribe to queues with dead-letter queue
-
-=======
 ## AWS Cognito User Pool
 
 Create a Cognito user pool with triggers and identity pool.
@@ -1126,7 +1122,6 @@ View the [full example](https://github.com/sst/sst/tree/dev/examples/aws-cognito
 ---
 ## Subscribe to queues with dead-letter queue
 
->>>>>>> @{-1}
 Messages not processed successfully by the primary subscriber function will be sent to the dead-letter queue after the retry limit is reached.
 ```ts title="sst.config.ts"
 // create dead letter queue
@@ -4144,7 +4139,7 @@ import type { SQSEvent, SQSHandler } from "aws-lambda";
 export const handler: SQSHandler = async (event: SQSEvent) => {
   for (const record of event.Records){
     // Message bodies are always strings
-    console.log(record.body) 
+    console.log(record.body)
   }
   return;
 };
@@ -4185,8 +4180,6 @@ export const handler: SQSHandler = async (event: SQSEvent) => {
   return { batchItemFailures };
 };
 ```
-<<<<<<< HEAD
-=======
 ```ts title="sst.config.ts"
 const queue = new sst.aws.Queue("MyQueue");
 queue.subscribe("subscriber.handler", {
@@ -4206,7 +4199,6 @@ return {
   queue: queue.url,
 };
 ```
->>>>>>> @{-1}
 
 View the [full example](https://github.com/sst/sst/tree/dev/examples/aws-queue).
 
@@ -4362,7 +4354,7 @@ const client = Resource.MyRedis.host === "localhost"
       port: Resource.MyRedis.port,
     })
   : new Cluster(
-      [{ 
+      [{
         host: Resource.MyRedis.host,
         port: Resource.MyRedis.port,
       }],
